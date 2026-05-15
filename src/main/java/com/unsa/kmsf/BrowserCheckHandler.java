@@ -38,13 +38,30 @@ public class BrowserCheckHandler {
         String nonce = UUID.randomUUID().toString().substring(0, 8);
         response.setContentType("text/html;charset=UTF-8");
         PrintWriter out = response.getWriter();
-        out.println("<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body>");
+        out.println("<!DOCTYPE html>");
+        out.println("<html lang=\"en\">");
+        out.println("<head>");
+        out.println("<meta charset=\"UTF-8\">");
+        out.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
+        out.println("<title>KMSF Verification</title>");
+        out.println("<style>");
+        out.println("body { font-family: Arial, sans-serif; background: #f4f4f4; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }");
+        out.println(".container { text-align: center; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }");
+        out.println("h1 { color: #333; }");
+        out.println("p { color: #666; }");
+        out.println("</style>");
+        out.println("</head>");
+        out.println("<body>");
+        out.println("<div class=\"container\">");
+        out.println("<h1>Please wait.</h1>");
+        out.println("<p>This site is protected with <strong>KMSF</strong></p>");
+        out.println("<p>KMSF is verifying that you are a real browser, not an automated script...</p>");
+        out.println("</div>");
         out.println("<script>");
         out.println("var nonce = '" + nonce + "';");
         out.println("var secret = '" + secret + "';");
         out.println("var ip = '" + ip + "';");
         out.println("var strict = " + strictMode + ";");
-        // 前端检测函数
         out.println("function sha256(s) {");
         out.println("  var msgBuffer = new TextEncoder('utf-8').encode(s);");
         out.println("  return crypto.subtle.digest('SHA-256', msgBuffer).then(function(hash) {");
@@ -60,7 +77,6 @@ public class BrowserCheckHandler {
         out.println("async function run() {");
         out.println("  var token = await sha256(ip + secret + nonce);");
         out.println("  if (strict) {");
-        // 严格模式额外检测
         if (checks.getOrDefault("webdriver", true)) {
             out.println("    if (navigator.webdriver) { token = 'blocked_webdriver'; }");
         }
@@ -87,8 +103,8 @@ public class BrowserCheckHandler {
         out.println("}");
         out.println("run();");
         out.println("</script>");
-        out.println("<p>正在验证浏览器环境，请稍候……</p>");
-        out.println("</body></html>");
+        out.println("</body>");
+        out.println("</html>");
         out.close();
     }
 
