@@ -1,0 +1,41 @@
+{
+  "enabled": true,
+  "log_level": "info",
+  "root_access": [],
+  "file_not_accessible": [
+    "Settings.folder",
+    "Settings.folder/*",
+    "root"
+  ],
+  "ip_blacklist": [],
+  "rate_limit": {
+    "enabled": true,
+    "max_requests": 100,
+    "time_window_seconds": 60,
+    "block_duration_seconds": 300
+  },
+  "browser_check": {
+    "enabled": true,
+    "challenge_secret": "CHANGE_ME_TO_RANDOM_STRING",
+    "token_validity_seconds": 3600,
+    "strict_mode": true,
+    "checks": {
+      "webdriver": true,
+      "headless": true,
+      "plugins": true,
+      "languages": true,
+      "timezone": true,
+      "canvas": true
+    }
+  },
+  "dynamic_blacklist": {
+    "enabled": true,
+    "threshold": 3,
+    "duration_seconds": 3600
+  },
+  "response_action": "block",
+  "custom_headers": {
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff"
+  }
+}
