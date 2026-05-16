@@ -9,24 +9,23 @@ public class Setup {
     private static Scanner scanner;
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-    // 语言包
+    // 语言包（中文、英文），为了节约篇幅，这里只保留关键提示，完整版已在上次给出
     private static Map<String, Map<String, String>> lang = new LinkedHashMap<>();
     static {
         Map<String, String> cn = new LinkedHashMap<>();
         cn.put("title", "KMSF 首次运行配置向导");
         cn.put("choose_lang", "Bootstrap language: CN/US");
-        cn.put("lang_prompt", "输入 CN 代表中文，US 代表英文");
         cn.put("use_default", "使用默认配置 (default.stis) 吗？(y/n)");
         cn.put("start_custom", "开始自定义配置（输入 y/n 或具体值）：");
         cn.put("enable_protection", "启用 KMSF 保护？(y/n)");
         cn.put("log_level", "日志级别 (info/debug)");
         cn.put("enable_rate_limit", "启用速率限制？(y/n)");
         cn.put("max_requests", "  时间窗口内最大请求数");
-        cn.put("time_window", "  时间窗口（支持 s/m/h，如 10s 或 1m）");
-        cn.put("block_duration", "  封禁时长（支持 s/m/h，最大 100 年）");
+        cn.put("time_window", "  时间窗口（支持 s/m/h/w/mo/y，如 10s、1m、2w、6mo、1y）");
+        cn.put("block_duration", "  封禁时长（支持 s/m/h/w/mo/y，最大 100 年）");
         cn.put("enable_dynamic", "启用动态黑名单？(y/n)");
         cn.put("dynamic_threshold", "  触发封禁的失败次数阈值");
-        cn.put("dynamic_duration", "  动态封禁时长（支持 s/m/h）");
+        cn.put("dynamic_duration", "  动态封禁时长（支持 s/m/h/w/mo/y）");
         cn.put("enable_browser_check", "启用浏览器检测？(y/n)");
         cn.put("challenge_secret", "  挑战密钥（留空自动生成）");
         cn.put("token_validity", "  Token 有效期（秒）");
@@ -41,23 +40,22 @@ public class Setup {
         cn.put("forbidden", "设置禁止访问的文件夹/文件（逗号分隔，如 Settings.folder,root）");
         cn.put("config_saved", "配置已保存到 Settings/.stis，现在可以启动您的 Web 应用了。");
         cn.put("invalid_number", "输入无效数字，请重新输入。");
-        cn.put("invalid_time", "时间格式错误或超过上限，请重新输入（如 10s、5m、1h）。");
+        cn.put("invalid_time", "时间格式错误或超过上限，请重新输入（如 10s、5m、1h、2w、6mo、1y）。");
 
         Map<String, String> en = new LinkedHashMap<>();
         en.put("title", "KMSF Initial Setup Wizard");
         en.put("choose_lang", "Bootstrap language: CN/US");
-        en.put("lang_prompt", "Enter CN for Chinese, US for English");
         en.put("use_default", "Use default.stis configuration? (y/n)");
         en.put("start_custom", "Start custom configuration (input y/n or specific value):");
         en.put("enable_protection", "Enable KMSF protection? (y/n)");
         en.put("log_level", "Log level (info/debug)");
         en.put("enable_rate_limit", "Enable rate limiting? (y/n)");
         en.put("max_requests", "  Max requests per time window");
-        en.put("time_window", "  Time window (supports s/m/h, e.g. 10s or 1m)");
-        en.put("block_duration", "  Block duration (supports s/m/h, max 100 years)");
+        en.put("time_window", "  Time window (supports s/m/h/w/mo/y, e.g. 10s, 1m, 2w, 6mo, 1y)");
+        en.put("block_duration", "  Block duration (supports s/m/h/w/mo/y, max 100 years)");
         en.put("enable_dynamic", "Enable dynamic blacklist? (y/n)");
         en.put("dynamic_threshold", "  Failure threshold for blocking");
-        en.put("dynamic_duration", "  Dynamic block duration (supports s/m/h)");
+        en.put("dynamic_duration", "  Dynamic block duration (supports s/m/h/w/mo/y)");
         en.put("enable_browser_check", "Enable browser check? (y/n)");
         en.put("challenge_secret", "  Challenge secret (leave blank to generate)");
         en.put("token_validity", "  Token validity (seconds)");
@@ -72,7 +70,7 @@ public class Setup {
         en.put("forbidden", "Forbidden paths (comma separated, e.g. Settings.folder,root)");
         en.put("config_saved", "Configuration saved to Settings/.stis. You may now start your web application.");
         en.put("invalid_number", "Invalid number, please try again.");
-        en.put("invalid_time", "Invalid time format or exceeds limit, please re-enter (e.g. 10s, 5m, 1h).");
+        en.put("invalid_time", "Invalid time format or exceeds limit, please re-enter (e.g. 10s, 5m, 1h, 2w, 6mo, 1y).");
 
         lang.put("CN", cn);
         lang.put("US", en);
@@ -81,15 +79,13 @@ public class Setup {
     public static void main(String[] args) throws IOException {
         scanner = new Scanner(System.in);
         System.out.println("=================================");
-        System.out.println(lang.get("CN").get("choose_lang")); // 先显示语言提示，不翻译
-        System.out.print("> ");
+        System.out.print(lang.get("CN").get("choose_lang") + " > ");
         String langChoice = scanner.nextLine().trim().toUpperCase();
         if (!lang.containsKey(langChoice)) {
-            System.out.println("Invalid choice, defaulting to EN.");
+            System.out.println("Invalid choice, defaulting to US.");
             langChoice = "US";
         }
-        final String L = langChoice;
-        Map<String, String> t = lang.get(L);
+        final Map<String, String> t = lang.get(langChoice);
 
         System.out.println("=================================");
         System.out.println("  " + t.get("title"));
@@ -119,8 +115,8 @@ public class Setup {
             rateLimit.put("enabled", rl);
             if (rl) {
                 rateLimit.put("max_requests", askInt(t.get("max_requests")));
-                rateLimit.put("time_window_seconds", askTime(t.get("time_window")));
-                rateLimit.put("block_duration_seconds", askTime(t.get("block_duration")));
+                rateLimit.put("time_window_seconds", askTime(t.get("time_window"), t));
+                rateLimit.put("block_duration_seconds", askTime(t.get("block_duration"), t));
             }
             config.put("rate_limit", rateLimit);
 
@@ -130,7 +126,7 @@ public class Setup {
             dynamic.put("enabled", db);
             if (db) {
                 dynamic.put("threshold", askInt(t.get("dynamic_threshold")));
-                dynamic.put("duration_seconds", askTime(t.get("dynamic_duration")));
+                dynamic.put("duration_seconds", askTime(t.get("dynamic_duration"), t));
             }
             config.put("dynamic_blacklist", dynamic);
 
@@ -192,20 +188,17 @@ public class Setup {
         System.out.println("\n" + t.get("config_saved"));
     }
 
-    // 辅助方法：询问 yes/no
     private static boolean askYesNo(String prompt) {
         System.out.print(prompt + " ");
         String input = scanner.nextLine().trim().toLowerCase();
         return input.equals("y") || input.equals("yes");
     }
 
-    // 询问字符串
     private static String askString(String prompt) {
         System.out.print(prompt + ": ");
         return scanner.nextLine().trim();
     }
 
-    // 询问整数，带重试
     private static int askInt(String prompt) {
         while (true) {
             System.out.print(prompt + ": ");
@@ -215,40 +208,53 @@ public class Setup {
                 if (val < 0) throw new NumberFormatException();
                 return val;
             } catch (NumberFormatException e) {
-                System.out.println(lang.get("CN").get("invalid_number")); // 错误提示可用默认语言
+                System.out.println(lang.get("CN").get("invalid_number"));
             }
         }
     }
 
-    // 解析时间输入：支持数字+s/m/h，纯数字视为秒，最大100年
-    private static long askTime(String prompt) {
-        final long MAX_SECONDS = 100L * 365 * 24 * 3600; // 100 年
+    // 解析时间输入，支持 s/m/h/w/mo/y，最大100年
+    private static long askTime(String prompt, Map<String, String> t) {
+        final long MAX_SECONDS = 100L * 365 * 24 * 3600;
         while (true) {
             System.out.print(prompt + ": ");
             String input = scanner.nextLine().trim().toLowerCase();
+            if (input.isEmpty()) {
+                System.out.println(t.get("invalid_time"));
+                continue;
+            }
             try {
-                if (input.isEmpty()) throw new NumberFormatException();
                 long multiplier = 1;
-                if (input.endsWith("s")) {
-                    multiplier = 1;
+                // 检查后缀（注意 mo 必须在 m 之前判断，防止 m 截走 mo）
+                if (input.endsWith("mo")) {
+                    multiplier = 30L * 24 * 3600; // 月
+                    input = input.substring(0, input.length() - 2);
+                } else if (input.endsWith("y")) {
+                    multiplier = 365L * 24 * 3600; // 年
                     input = input.substring(0, input.length() - 1);
-                } else if (input.endsWith("m")) {
-                    multiplier = 60;
+                } else if (input.endsWith("w")) {
+                    multiplier = 7L * 24 * 3600; // 周
                     input = input.substring(0, input.length() - 1);
                 } else if (input.endsWith("h")) {
                     multiplier = 3600;
+                    input = input.substring(0, input.length() - 1);
+                } else if (input.endsWith("m")) { // 注意：必须在 mo 之后，以免误截
+                    multiplier = 60;
+                    input = input.substring(0, input.length() - 1);
+                } else if (input.endsWith("s")) {
+                    multiplier = 1;
                     input = input.substring(0, input.length() - 1);
                 }
                 long value = Long.parseLong(input);
                 if (value < 0) throw new NumberFormatException();
                 long seconds = value * multiplier;
                 if (seconds > MAX_SECONDS) {
-                    System.out.println(lang.get("CN").get("invalid_time"));
+                    System.out.println(t.get("invalid_time"));
                     continue;
                 }
                 return seconds;
             } catch (NumberFormatException e) {
-                System.out.println(lang.get("CN").get("invalid_time"));
+                System.out.println(t.get("invalid_time"));
             }
         }
     }
