@@ -9,7 +9,7 @@ public class Setup {
     private static Scanner scanner;
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-    // 语言包（中文、英文），为了节约篇幅，这里只保留关键提示，完整版已在上次给出
+    // 语言包（保留之前完整的中英文字段）
     private static Map<String, Map<String, String>> lang = new LinkedHashMap<>();
     static {
         Map<String, String> cn = new LinkedHashMap<>();
@@ -37,7 +37,7 @@ public class Setup {
         cn.put("check_timezone", "    检测时区？(y/n)");
         cn.put("check_canvas", "    检测 WebGL？(y/n)");
         cn.put("root_access", "设置根目录访问白名单 IP（逗号分隔，无则回车）");
-        cn.put("forbidden", "设置禁止访问的文件夹/文件（逗号分隔，如 Settings.folder,root）");
+        cn.put("forbidden_note", "强制保护：Settings.folder, Settings.folder/*, root 已自动启用，不可修改。");
         cn.put("config_saved", "配置已保存到 Settings/.stis，现在可以启动您的 Web 应用了。");
         cn.put("invalid_number", "输入无效数字，请重新输入。");
         cn.put("invalid_time", "时间格式错误或超过上限，请重新输入（如 10s、5m、1h、2w、6mo、1y）。");
@@ -67,7 +67,7 @@ public class Setup {
         en.put("check_timezone", "    Check timezone? (y/n)");
         en.put("check_canvas", "    Check WebGL? (y/n)");
         en.put("root_access", "Whitelist IPs for root access (comma separated, enter to skip)");
-        en.put("forbidden", "Forbidden paths (comma separated, e.g. Settings.folder,root)");
+        en.put("forbidden_note", "Mandatory protection: Settings.folder, Settings.folder/*, root are auto-enabled and locked.");
         en.put("config_saved", "Configuration saved to Settings/.stis. You may now start your web application.");
         en.put("invalid_number", "Invalid number, please try again.");
         en.put("invalid_time", "Invalid time format or exceeds limit, please re-enter (e.g. 10s, 5m, 1h, 2w, 6mo, 1y).");
@@ -90,6 +90,7 @@ public class Setup {
         System.out.println("=================================");
         System.out.println("  " + t.get("title"));
         System.out.println("=================================");
+        System.out.println(t.get("forbidden_note")); // 显示强制保护提示
         System.out.print(t.get("use_default") + " ");
         String choice = scanner.nextLine().trim().toLowerCase();
 
@@ -154,7 +155,7 @@ public class Setup {
             }
             config.put("browser_check", browserCheck);
 
-            // 路径保护
+            // 路径保护白名单
             String rootIPs = askString(t.get("root_access"));
             List<String> rootAccess = new ArrayList<>();
             if (!rootIPs.isEmpty()) {
@@ -162,12 +163,12 @@ public class Setup {
             }
             config.put("root_access", rootAccess);
 
-            String forbidden = askString(t.get("forbidden"));
-            List<String> forbiddenList = new ArrayList<>();
-            if (!forbidden.isEmpty()) {
-                for (String s : forbidden.split(",")) forbiddenList.add(s.trim());
-            }
-            config.put("file_not_accessible", forbiddenList);
+            // 强制写入硬编码路径（不询问用户）
+            List<String> forcedList = new ArrayList<>();
+            forcedList.add("Settings.folder");
+            forcedList.add("Settings.folder/*");
+            forcedList.add("root");
+            config.put("file_not_accessible", forcedList);
 
             config.put("ip_blacklist", new ArrayList<>());
             config.put("response_action", "block");
@@ -213,7 +214,6 @@ public class Setup {
         }
     }
 
-    // 解析时间输入，支持 s/m/h/w/mo/y，最大100年
     private static long askTime(String prompt, Map<String, String> t) {
         final long MAX_SECONDS = 100L * 365 * 24 * 3600;
         while (true) {
@@ -225,20 +225,19 @@ public class Setup {
             }
             try {
                 long multiplier = 1;
-                // 检查后缀（注意 mo 必须在 m 之前判断，防止 m 截走 mo）
                 if (input.endsWith("mo")) {
-                    multiplier = 30L * 24 * 3600; // 月
+                    multiplier = 30L * 24 * 3600;
                     input = input.substring(0, input.length() - 2);
                 } else if (input.endsWith("y")) {
-                    multiplier = 365L * 24 * 3600; // 年
+                    multiplier = 365L * 24 * 3600;
                     input = input.substring(0, input.length() - 1);
                 } else if (input.endsWith("w")) {
-                    multiplier = 7L * 24 * 3600; // 周
+                    multiplier = 7L * 24 * 3600;
                     input = input.substring(0, input.length() - 1);
                 } else if (input.endsWith("h")) {
                     multiplier = 3600;
                     input = input.substring(0, input.length() - 1);
-                } else if (input.endsWith("m")) { // 注意：必须在 mo 之后，以免误截
+                } else if (input.endsWith("m")) {
                     multiplier = 60;
                     input = input.substring(0, input.length() - 1);
                 } else if (input.endsWith("s")) {

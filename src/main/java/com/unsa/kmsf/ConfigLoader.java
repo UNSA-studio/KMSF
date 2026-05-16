@@ -13,12 +13,15 @@ public class ConfigLoader {
     private static final Type configType = new TypeToken<Map<String, Object>>(){}.getType();
     private static File stisFile = null;
 
+    // 硬编码不可修改的路径
+    private static final List<String> MANDATORY_PROTECTED = Arrays.asList(
+        "Settings.folder", "Settings.folder/*", "root"
+    );
+
     public static synchronized void loadConfig(String filePath) throws IOException {
         if (encryptedConfig != null) return;
-        // 支持相对路径和绝对路径
         Path path;
         if (filePath == null || filePath.isEmpty()) {
-            // 默认：当前工作目录下的 Settings/.stis
             path = Paths.get("Settings/.stis");
         } else {
             path = Paths.get(filePath);
@@ -26,7 +29,6 @@ public class ConfigLoader {
         stisFile = path.toFile();
 
         if (!stisFile.exists()) {
-            // 如果不存在，尝试从 classpath 复制默认配置
             InputStream is = ConfigLoader.class.getClassLoader().getResourceAsStream("default.stis");
             if (is != null) {
                 Files.createDirectories(stisFile.getParentFile().toPath());
@@ -37,7 +39,38 @@ public class ConfigLoader {
             }
         }
         String rawJson = Files.readString(stisFile.toPath());
-        encryptedConfig = SecureUtils.encrypt(rawJson);
+        Map<String, Object> config = gson.fromJson(rawJson, configType);
+
+        // 强制注入硬编码路径
+        List<String> currentList = (List<String>) config.get("file_not_accessible");
+        if (currentList == null) {
+            currentList = new ArrayList<>();
+            config.put("file_not_accessible", currentList);
+        }
+        boolean tampered = false;
+        for (String mandatory : MANDATORY_PROTECTED) {
+            if (!currentList.contains(mandatory)) {
+                currentList.add(mandatory);
+                tampered = true;
+            }
+        }
+        if (tampered) {
+            System.err.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            System.err.println("WARNING: The .stis file has been tampered with and you are at risk!");
+            System.err.println("Missing mandatory protections have been restored:");
+            for (String mandatory : MANDATORY_PROTECTED) {
+                if (!currentList.contains(mandatory)) {
+                    System.err.println("  - " + mandatory);
+                }
+            }
+            System.err.println("Please check your configuration file immediately.");
+            System.err.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            // 将修正后的配置写回文件
+            String newJson = gson.toJson(config);
+            Files.write(stisFile.toPath(), newJson.getBytes());
+        }
+
+        encryptedConfig = SecureUtils.encrypt(gson.toJson(config));
     }
 
     public static Map<String, Object> getConfig() {
@@ -47,6 +80,17 @@ public class ConfigLoader {
     }
 
     public static synchronized void updateConfig(Map<String, Object> newConfig) throws IOException {
+        // 更新时同样强制注入硬编码路径
+        List<String> currentList = (List<String>) newConfig.get("file_not_accessible");
+        if (currentList == null) {
+            currentList = new ArrayList<>();
+            newConfig.put("file_not_accessible", currentList);
+        }
+        for (String mandatory : MANDATORY_PROTECTED) {
+            if (!currentList.contains(mandatory)) {
+                currentList.add(mandatory);
+            }
+        }
         String json = gson.toJson(newConfig);
         encryptedConfig = SecureUtils.encrypt(json);
         if (stisFile != null) {
