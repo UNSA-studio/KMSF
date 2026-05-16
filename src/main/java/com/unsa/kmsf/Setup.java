@@ -9,7 +9,6 @@ public class Setup {
     private static Scanner scanner;
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-    // 语言包（保留之前完整的中英文字段）
     private static Map<String, Map<String, String>> lang = new LinkedHashMap<>();
     static {
         Map<String, String> cn = new LinkedHashMap<>();
@@ -17,60 +16,62 @@ public class Setup {
         cn.put("choose_lang", "Bootstrap language: CN/US");
         cn.put("use_default", "使用默认配置 (default.stis) 吗？(y/n)");
         cn.put("start_custom", "开始自定义配置（输入 y/n 或具体值）：");
-        cn.put("enable_protection", "启用 KMSF 保护？(y/n)");
+        cn.put("enable_protection", "启用 KMSF 保护？");
         cn.put("log_level", "日志级别 (info/debug)");
-        cn.put("enable_rate_limit", "启用速率限制？(y/n)");
+        cn.put("enable_rate_limit", "启用速率限制？");
         cn.put("max_requests", "  时间窗口内最大请求数");
         cn.put("time_window", "  时间窗口（支持 s/m/h/w/mo/y，如 10s、1m、2w、6mo、1y）");
         cn.put("block_duration", "  封禁时长（支持 s/m/h/w/mo/y，最大 100 年）");
-        cn.put("enable_dynamic", "启用动态黑名单？(y/n)");
+        cn.put("enable_dynamic", "启用动态黑名单？");
         cn.put("dynamic_threshold", "  触发封禁的失败次数阈值");
         cn.put("dynamic_duration", "  动态封禁时长（支持 s/m/h/w/mo/y）");
-        cn.put("enable_browser_check", "启用浏览器检测？(y/n)");
+        cn.put("enable_browser_check", "启用浏览器检测？");
         cn.put("challenge_secret", "  挑战密钥（留空自动生成）");
         cn.put("token_validity", "  Token 有效期（秒）");
-        cn.put("strict_mode", "  严格模式？(y/n)");
-        cn.put("check_webdriver", "    检测 webdriver？(y/n)");
-        cn.put("check_headless", "    检测无头浏览器？(y/n)");
-        cn.put("check_plugins", "    检测插件数量？(y/n)");
-        cn.put("check_languages", "    检测语言列表？(y/n)");
-        cn.put("check_timezone", "    检测时区？(y/n)");
-        cn.put("check_canvas", "    检测 WebGL？(y/n)");
+        cn.put("strict_mode", "  严格模式？");
+        cn.put("check_webdriver", "    检测 webdriver？");
+        cn.put("check_headless", "    检测无头浏览器？");
+        cn.put("check_plugins", "    检测插件数量？");
+        cn.put("check_languages", "    检测语言列表？");
+        cn.put("check_timezone", "    检测时区？");
+        cn.put("check_canvas", "    检测 WebGL？");
         cn.put("root_access", "设置根目录访问白名单 IP（逗号分隔，无则回车）");
         cn.put("forbidden_note", "强制保护：Settings.folder, Settings.folder/*, root 已自动启用，不可修改。");
         cn.put("config_saved", "配置已保存到 Settings/.stis，现在可以启动您的 Web 应用了。");
         cn.put("invalid_number", "输入无效数字，请重新输入。");
         cn.put("invalid_time", "时间格式错误或超过上限，请重新输入（如 10s、5m、1h、2w、6mo、1y）。");
+        cn.put("invalid_yes_no", "无效输入，请输入 y/yes 或 n/no。");
 
         Map<String, String> en = new LinkedHashMap<>();
         en.put("title", "KMSF Initial Setup Wizard");
         en.put("choose_lang", "Bootstrap language: CN/US");
         en.put("use_default", "Use default.stis configuration? (y/n)");
         en.put("start_custom", "Start custom configuration (input y/n or specific value):");
-        en.put("enable_protection", "Enable KMSF protection? (y/n)");
+        en.put("enable_protection", "Enable KMSF protection?");
         en.put("log_level", "Log level (info/debug)");
-        en.put("enable_rate_limit", "Enable rate limiting? (y/n)");
+        en.put("enable_rate_limit", "Enable rate limiting?");
         en.put("max_requests", "  Max requests per time window");
         en.put("time_window", "  Time window (supports s/m/h/w/mo/y, e.g. 10s, 1m, 2w, 6mo, 1y)");
         en.put("block_duration", "  Block duration (supports s/m/h/w/mo/y, max 100 years)");
-        en.put("enable_dynamic", "Enable dynamic blacklist? (y/n)");
+        en.put("enable_dynamic", "Enable dynamic blacklist?");
         en.put("dynamic_threshold", "  Failure threshold for blocking");
         en.put("dynamic_duration", "  Dynamic block duration (supports s/m/h/w/mo/y)");
-        en.put("enable_browser_check", "Enable browser check? (y/n)");
+        en.put("enable_browser_check", "Enable browser check?");
         en.put("challenge_secret", "  Challenge secret (leave blank to generate)");
         en.put("token_validity", "  Token validity (seconds)");
-        en.put("strict_mode", "  Strict mode? (y/n)");
-        en.put("check_webdriver", "    Check webdriver? (y/n)");
-        en.put("check_headless", "    Check headless? (y/n)");
-        en.put("check_plugins", "    Check plugins? (y/n)");
-        en.put("check_languages", "    Check languages? (y/n)");
-        en.put("check_timezone", "    Check timezone? (y/n)");
-        en.put("check_canvas", "    Check WebGL? (y/n)");
+        en.put("strict_mode", "  Strict mode?");
+        en.put("check_webdriver", "    Check webdriver?");
+        en.put("check_headless", "    Check headless?");
+        en.put("check_plugins", "    Check plugins?");
+        en.put("check_languages", "    Check languages?");
+        en.put("check_timezone", "    Check timezone?");
+        en.put("check_canvas", "    Check WebGL?");
         en.put("root_access", "Whitelist IPs for root access (comma separated, enter to skip)");
         en.put("forbidden_note", "Mandatory protection: Settings.folder, Settings.folder/*, root are auto-enabled and locked.");
         en.put("config_saved", "Configuration saved to Settings/.stis. You may now start your web application.");
         en.put("invalid_number", "Invalid number, please try again.");
         en.put("invalid_time", "Invalid time format or exceeds limit, please re-enter (e.g. 10s, 5m, 1h, 2w, 6mo, 1y).");
+        en.put("invalid_yes_no", "Invalid input, please enter y/yes or n/no.");
 
         lang.put("CN", cn);
         lang.put("US", en);
@@ -90,7 +91,7 @@ public class Setup {
         System.out.println("=================================");
         System.out.println("  " + t.get("title"));
         System.out.println("=================================");
-        System.out.println(t.get("forbidden_note")); // 显示强制保护提示
+        System.out.println(t.get("forbidden_note"));
         System.out.print(t.get("use_default") + " ");
         String choice = scanner.nextLine().trim().toLowerCase();
 
@@ -107,49 +108,49 @@ public class Setup {
             config = new LinkedHashMap<>();
             System.out.println("\n" + t.get("start_custom"));
 
-            config.put("enabled", askYesNo(t.get("enable_protection")));
+            config.put("enabled", askYesNo(t.get("enable_protection"), t));
             config.put("log_level", askString(t.get("log_level")));
 
             // 速率限制
-            boolean rl = askYesNo(t.get("enable_rate_limit"));
+            boolean rl = askYesNo(t.get("enable_rate_limit"), t);
             Map<String, Object> rateLimit = new LinkedHashMap<>();
             rateLimit.put("enabled", rl);
             if (rl) {
-                rateLimit.put("max_requests", askInt(t.get("max_requests")));
+                rateLimit.put("max_requests", askInt(t.get("max_requests"), t));
                 rateLimit.put("time_window_seconds", askTime(t.get("time_window"), t));
                 rateLimit.put("block_duration_seconds", askTime(t.get("block_duration"), t));
             }
             config.put("rate_limit", rateLimit);
 
             // 动态黑名单
-            boolean db = askYesNo(t.get("enable_dynamic"));
+            boolean db = askYesNo(t.get("enable_dynamic"), t);
             Map<String, Object> dynamic = new LinkedHashMap<>();
             dynamic.put("enabled", db);
             if (db) {
-                dynamic.put("threshold", askInt(t.get("dynamic_threshold")));
+                dynamic.put("threshold", askInt(t.get("dynamic_threshold"), t));
                 dynamic.put("duration_seconds", askTime(t.get("dynamic_duration"), t));
             }
             config.put("dynamic_blacklist", dynamic);
 
             // 浏览器检测
-            boolean bc = askYesNo(t.get("enable_browser_check"));
+            boolean bc = askYesNo(t.get("enable_browser_check"), t);
             Map<String, Object> browserCheck = new LinkedHashMap<>();
             browserCheck.put("enabled", bc);
             if (bc) {
                 String secret = askString(t.get("challenge_secret"));
                 if (secret.isEmpty()) secret = UUID.randomUUID().toString();
                 browserCheck.put("challenge_secret", secret);
-                browserCheck.put("token_validity_seconds", askInt(t.get("token_validity")));
-                boolean strict = askYesNo(t.get("strict_mode"));
+                browserCheck.put("token_validity_seconds", askInt(t.get("token_validity"), t));
+                boolean strict = askYesNo(t.get("strict_mode"), t);
                 browserCheck.put("strict_mode", strict);
                 Map<String, Boolean> checks = new LinkedHashMap<>();
                 if (strict) {
-                    checks.put("webdriver", askYesNo(t.get("check_webdriver")));
-                    checks.put("headless", askYesNo(t.get("check_headless")));
-                    checks.put("plugins", askYesNo(t.get("check_plugins")));
-                    checks.put("languages", askYesNo(t.get("check_languages")));
-                    checks.put("timezone", askYesNo(t.get("check_timezone")));
-                    checks.put("canvas", askYesNo(t.get("check_canvas")));
+                    checks.put("webdriver", askYesNo(t.get("check_webdriver"), t));
+                    checks.put("headless", askYesNo(t.get("check_headless"), t));
+                    checks.put("plugins", askYesNo(t.get("check_plugins"), t));
+                    checks.put("languages", askYesNo(t.get("check_languages"), t));
+                    checks.put("timezone", askYesNo(t.get("check_timezone"), t));
+                    checks.put("canvas", askYesNo(t.get("check_canvas"), t));
                 }
                 browserCheck.put("checks", checks);
             }
@@ -163,7 +164,7 @@ public class Setup {
             }
             config.put("root_access", rootAccess);
 
-            // 强制写入硬编码路径（不询问用户）
+            // 强制写入硬编码路径
             List<String> forcedList = new ArrayList<>();
             forcedList.add("Settings.folder");
             forcedList.add("Settings.folder/*");
@@ -178,7 +179,6 @@ public class Setup {
             config.put("custom_headers", headers);
         }
 
-        // 确保 Settings 目录存在
         Path settingsDir = Paths.get("Settings");
         if (!Files.exists(settingsDir)) {
             Files.createDirectory(settingsDir);
@@ -189,10 +189,19 @@ public class Setup {
         System.out.println("\n" + t.get("config_saved"));
     }
 
-    private static boolean askYesNo(String prompt) {
-        System.out.print(prompt + " ");
-        String input = scanner.nextLine().trim().toLowerCase();
-        return input.equals("y") || input.equals("yes");
+    // 严格校验 y/n
+    private static boolean askYesNo(String prompt, Map<String, String> t) {
+        while (true) {
+            System.out.print(prompt + " (y/n): ");
+            String input = scanner.nextLine().trim().toLowerCase();
+            if (input.equals("y") || input.equals("yes")) {
+                return true;
+            } else if (input.equals("n") || input.equals("no")) {
+                return false;
+            } else {
+                System.out.println(t.get("invalid_yes_no"));
+            }
+        }
     }
 
     private static String askString(String prompt) {
@@ -200,7 +209,7 @@ public class Setup {
         return scanner.nextLine().trim();
     }
 
-    private static int askInt(String prompt) {
+    private static int askInt(String prompt, Map<String, String> t) {
         while (true) {
             System.out.print(prompt + ": ");
             String input = scanner.nextLine().trim();
@@ -209,7 +218,7 @@ public class Setup {
                 if (val < 0) throw new NumberFormatException();
                 return val;
             } catch (NumberFormatException e) {
-                System.out.println(lang.get("CN").get("invalid_number"));
+                System.out.println(t.get("invalid_number"));
             }
         }
     }
