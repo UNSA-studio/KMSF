@@ -1,6 +1,7 @@
 package com.unsa.kmsf;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.io.*;
 import java.lang.reflect.Type;
@@ -9,11 +10,11 @@ import java.util.*;
 
 public class ConfigLoader {
     private static String encryptedConfig = null;
-    private static final Gson gson = new Gson();
+    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson compactGson = new Gson();
     private static final Type configType = new TypeToken<Map<String, Object>>(){}.getType();
     private static File stisFile = null;
 
-    // 硬编码不可修改的保护路径
     private static final List<String> MANDATORY_PROTECTED = Arrays.asList(
         "Settings.folder", "Settings.folder/*", "root"
     );
@@ -41,7 +42,6 @@ public class ConfigLoader {
         String rawJson = Files.readString(stisFile.toPath());
         Map<String, Object> config = gson.fromJson(rawJson, configType);
 
-        // 强制注入硬编码路径
         List<String> currentList = (List<String>) config.get("file_not_accessible");
         if (currentList == null) {
             currentList = new ArrayList<>();
@@ -65,12 +65,11 @@ public class ConfigLoader {
             }
             System.err.println("Please check your configuration file immediately.");
             System.err.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-            // 将修正后的配置写回文件
             String newJson = gson.toJson(config);
             Files.write(stisFile.toPath(), newJson.getBytes());
         }
 
-        encryptedConfig = SecureUtils.encrypt(gson.toJson(config));
+        encryptedConfig = SecureUtils.encrypt(compactGson.toJson(config));
     }
 
     public static Map<String, Object> getConfig() {
@@ -80,7 +79,6 @@ public class ConfigLoader {
     }
 
     public static synchronized void updateConfig(Map<String, Object> newConfig) throws IOException {
-        // 更新时同样强制注入硬编码路径
         List<String> currentList = (List<String>) newConfig.get("file_not_accessible");
         if (currentList == null) {
             currentList = new ArrayList<>();
@@ -92,7 +90,7 @@ public class ConfigLoader {
             }
         }
         String json = gson.toJson(newConfig);
-        encryptedConfig = SecureUtils.encrypt(json);
+        encryptedConfig = SecureUtils.encrypt(compactGson.toJson(newConfig));
         if (stisFile != null) {
             Files.write(stisFile.toPath(), json.getBytes());
         }
