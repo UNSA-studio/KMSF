@@ -15,19 +15,29 @@ public class ConfigLoader {
 
     public static synchronized void loadConfig(String filePath) throws IOException {
         if (encryptedConfig != null) return;
-        stisFile = new File(filePath);
-        if (!stisFile.exists()) {
-            InputStream is = ConfigLoader.class.getClassLoader().getResourceAsStream("default.stis");
-            if (is == null) throw new FileNotFoundException("KMSF .stis 文件不存在: " + filePath);
-            String rawJson = new String(is.readAllBytes());
-            encryptedConfig = SecureUtils.encrypt(rawJson);
-            // 同时写出到指定路径，方便后续修改
-            Files.createDirectories(stisFile.getParentFile().toPath());
-            Files.write(stisFile.toPath(), rawJson.getBytes());
+        // 支持相对路径和绝对路径
+        Path path;
+        if (filePath == null || filePath.isEmpty()) {
+            // 默认：当前工作目录下的 Settings/.stis
+            path = Paths.get("Settings/.stis");
         } else {
-            String rawJson = Files.readString(stisFile.toPath());
-            encryptedConfig = SecureUtils.encrypt(rawJson);
+            path = Paths.get(filePath);
         }
+        stisFile = path.toFile();
+
+        if (!stisFile.exists()) {
+            // 如果不存在，尝试从 classpath 复制默认配置
+            InputStream is = ConfigLoader.class.getClassLoader().getResourceAsStream("default.stis");
+            if (is != null) {
+                Files.createDirectories(stisFile.getParentFile().toPath());
+                String rawJson = new String(is.readAllBytes());
+                Files.write(stisFile.toPath(), rawJson.getBytes());
+            } else {
+                throw new FileNotFoundException("KMSF .stis 文件不存在，且未找到默认模板: " + path);
+            }
+        }
+        String rawJson = Files.readString(stisFile.toPath());
+        encryptedConfig = SecureUtils.encrypt(rawJson);
     }
 
     public static Map<String, Object> getConfig() {
@@ -36,7 +46,6 @@ public class ConfigLoader {
         return gson.fromJson(json, configType);
     }
 
-    // 内部更新内存并持久化到文件（仅 KMSF 进程调用）
     public static synchronized void updateConfig(Map<String, Object> newConfig) throws IOException {
         String json = gson.toJson(newConfig);
         encryptedConfig = SecureUtils.encrypt(json);
@@ -44,6 +53,4 @@ public class ConfigLoader {
             Files.write(stisFile.toPath(), json.getBytes());
         }
     }
-
-    // 外部尝试读取.stis 文件会被过滤器拦截，所以这里不用保护文件系统层
 }
