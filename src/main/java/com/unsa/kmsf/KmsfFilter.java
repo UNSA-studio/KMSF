@@ -3,7 +3,10 @@ package com.unsa.kmsf;
 import javax.servlet.*;
 import javax.servlet.http.*;
 import java.io.*;
+import java.nio.file.*;
+import java.time.Instant;
 import java.util.*;
+import java.text.SimpleDateFormat;
 
 public class KmsfFilter implements Filter {
     private RateLimiter rateLimiter;
@@ -14,12 +17,15 @@ public class KmsfFilter implements Filter {
     private boolean enabled;
     private String stisFilePath;
     private Map<String, String> customHeaders;
+    private String logPath;
+    private boolean logEnabled;
+    private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         stisFilePath = filterConfig.getInitParameter("stisFilePath");
         if (stisFilePath == null) {
-            stisFilePath = System.getProperty("kmsf.stis.path", "/etc/kmsf/default.stis");
+            stisFilePath = System.getProperty("kmsf.stis.path", "Settings/.stis");
         }
         try {
             ConfigLoader.loadConfig(stisFilePath);
@@ -41,6 +47,25 @@ public class KmsfFilter implements Filter {
         if (hdrs != null) {
             hdrs.forEach((k, v) -> customHeaders.put(k, String.valueOf(v)));
         }
+        // 日志配置
+        logPath = (String) config.getOrDefault("log_path", "Settings/kmsf.log");
+        String logLevel = (String) config.getOrDefault("log_level", "info");
+        logEnabled = logLevel.equals("debug") || logLevel.equals("info");
+    }
+
+    private void log(String message) {
+        if (!logEnabled || logPath == null) return;
+        try {
+            Path path = Paths.get(logPath);
+            if (path.getParent() != null) {
+                Files.createDirectories(path.getParent());
+            }
+            String line = sdf.format(new Date()) + " [" + Thread.currentThread().getName() + "] " + message + "\n";
+            Files.write(path, line.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            // 日志写入失败不阻断主流程
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -55,21 +80,27 @@ public class KmsfFilter implements Filter {
         }
 
         if (!enabled) {
+            log("KMSF disabled, forwarding request: " + request.getRequestURI());
             chain.doFilter(req, res);
             return;
         }
 
         String ip = getClientIP(request);
+        String requestURI = request.getRequestURI();
+
+        log("Request from " + ip + " to " + requestURI);
 
         // 1. IP 黑名单检查
         List<String> blacklist = (List<String>) config.get("ip_blacklist");
         if (blacklist != null && blacklist.contains(ip)) {
+            log("BLOCKED: IP " + ip + " in blacklist");
             sendBlocked(response, "IP permanently blocked");
             return;
         }
 
         // 2. 速率限制
         if (!rateLimiter.isAllowed(ip)) {
+            log("BLOCKED: Rate limit or dynamic blacklist triggered for " + ip);
             sendBlocked(response, "Rate limit exceeded or blocked");
             return;
         }
@@ -77,7 +108,6 @@ public class KmsfFilter implements Filter {
         // 3. 浏览器挑战
         if ((boolean) ((Map) config.get("browser_check")).get("enabled")) {
             if (!browserCheck.isVerified(request)) {
-                // 检查本次请求是否带有 blocked_android_root 的 cookie
                 Cookie[] cookies = request.getCookies();
                 String token = null;
                 if (cookies != null) {
@@ -89,7 +119,7 @@ public class KmsfFilter implements Filter {
                     }
                 }
                 if ("blocked_android_root".equals(token)) {
-                    // 永久封禁此 IP
+                    log("BLOCKED: Android root detected for IP " + ip + " - permanently blocking");
                     try {
                         Map<String, Object> currentCfg = ConfigLoader.getConfig();
                         List<String> list = (List<String>) currentCfg.get("ip_blacklist");
@@ -98,30 +128,31 @@ public class KmsfFilter implements Filter {
                             list.add(ip);
                             currentCfg.put("ip_blacklist", list);
                             ConfigLoader.updateConfig(currentCfg);
-                            reloadConfig(); // 立即生效
+                            reloadConfig();
                         }
-                    } catch (Exception e) {
-                        // 日志可忽略
-                    }
+                    } catch (Exception e) {}
                     sendBlocked(response, "Android root detected - IP permanently blocked");
                     return;
                 }
-                // 普通验证未通过，发送挑战页面
+                // 未验证，发送挑战页
+                log("Browser challenge issued for " + ip);
                 browserCheck.issueChallenge(response, ip, request.getHeader("User-Agent"));
                 return;
             }
         }
 
         // 4. 路径保护
-        String requestURI = request.getRequestURI();
         if (isProtectedPath(requestURI)) {
             boolean hasAccess = rootAccessIPs.contains(ip);
             if (!hasAccess) {
+                log("BLOCKED: Protected path " + requestURI + " accessed by " + ip + " without root access");
                 sendBlocked(response, "Access to protected path denied");
                 return;
             }
         }
 
+        // 通过所有检查
+        log("ALLOWED: " + ip + " -> " + requestURI);
         chain.doFilter(req, res);
     }
 

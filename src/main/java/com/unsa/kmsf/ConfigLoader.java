@@ -13,7 +13,7 @@ public class ConfigLoader {
     private static final Type configType = new TypeToken<Map<String, Object>>(){}.getType();
     private static File stisFile = null;
 
-    // 硬编码不可修改的路径
+    // 硬编码不可修改的保护路径
     private static final List<String> MANDATORY_PROTECTED = Arrays.asList(
         "Settings.folder", "Settings.folder/*", "root"
     );

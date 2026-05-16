@@ -1,6 +1,7 @@
 {
   "enabled": true,
   "log_level": "info",
+  "log_path": "Settings/kmsf.log",
   "root_access": [],
   "file_not_accessible": [
     "Settings.folder",
@@ -10,8 +11,8 @@
   "ip_blacklist": [],
   "rate_limit": {
     "enabled": true,
-    "max_requests": 100,
-    "time_window_seconds": 60,
+    "max_requests": 10,
+    "time_window_seconds": 10,
     "block_duration_seconds": 300
   },
   "browser_check": {
