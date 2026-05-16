@@ -26,6 +26,8 @@ public class BrowserCheckHandler {
             for (Cookie c : cookies) {
                 if (TOKEN_COOKIE.equals(c.getName())) {
                     String token = c.getValue();
+                    // 如果 token 包含特殊前缀（blocked_），视为未通过
+                    if (token.startsWith("blocked_")) return false;
                     String expected = generateToken(request.getRemoteAddr());
                     return expected.equals(token);
                 }
@@ -36,6 +38,7 @@ public class BrowserCheckHandler {
 
     public void issueChallenge(HttpServletResponse response, String ip, String userAgent) throws IOException {
         String nonce = UUID.randomUUID().toString().substring(0, 8);
+        boolean isAndroid = userAgent != null && userAgent.contains("Android");
         response.setContentType("text/html;charset=UTF-8");
         PrintWriter out = response.getWriter();
         out.println("<!DOCTYPE html>");
@@ -62,6 +65,8 @@ public class BrowserCheckHandler {
         out.println("var secret = '" + secret + "';");
         out.println("var ip = '" + ip + "';");
         out.println("var strict = " + strictMode + ";");
+        out.println("var isAndroid = " + isAndroid + ";");
+        // SHA256 函数
         out.println("function sha256(s) {");
         out.println("  var msgBuffer = new TextEncoder('utf-8').encode(s);");
         out.println("  return crypto.subtle.digest('SHA-256', msgBuffer).then(function(hash) {");
@@ -74,28 +79,60 @@ public class BrowserCheckHandler {
         out.println("    return hex;");
         out.println("  });");
         out.println("}");
+        // 收集硬件指纹
+        out.println("function collectFingerprint() {");
+        out.println("  var fp = '';");
+        out.println("  try { fp += 'cpus:' + (navigator.hardwareConcurrency || '0') + ';'; } catch(e){}");
+        out.println("  try { fp += 'mem:' + (navigator.deviceMemory || '0') + ';'; } catch(e){}");
+        out.println("  try {");
+        out.println("    var canvas = document.createElement('canvas');");
+        out.println("    var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');");
+        out.println("    if (gl) {");
+        out.println("      var debugInfo = gl.getExtension('WEBGL_debug_renderer_info');");
+        out.println("      if (debugInfo) {");
+        out.println("        fp += 'gpu:' + gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) + ';';");
+        out.println("      }");
+        out.println("    }");
+        out.println("  } catch(e){}");
+        out.println("  try { fp += 'tz:' + Intl.DateTimeFormat().resolvedOptions().timeZone + ';'; } catch(e){}");
+        out.println("  return fp;");
+        out.println("}");
         out.println("async function run() {");
-        out.println("  var token = await sha256(ip + secret + nonce);");
+        out.println("  var fingerprint = collectFingerprint();");
+        out.println("  var token = await sha256(ip + secret + nonce + fingerprint);");
         out.println("  if (strict) {");
+        // 各项检测
         if (checks.getOrDefault("webdriver", true)) {
-            out.println("    if (navigator.webdriver) { token = 'blocked_webdriver'; }");
+            out.println("    if (navigator.webdriver) {");
+            out.println("      token = (isAndroid ? 'blocked_android_root' : 'blocked_webdriver');");
+            out.println("    }");
         }
         if (checks.getOrDefault("headless", true)) {
-            out.println("    if (navigator.userAgent.includes('Headless') || navigator.userAgent.includes('headless')) { token = 'blocked_headless'; }");
+            out.println("    if (navigator.userAgent.includes('Headless') || navigator.userAgent.includes('headless')) {");
+            out.println("      token = (isAndroid ? 'blocked_android_root' : 'blocked_headless');");
+            out.println("    }");
         }
         if (checks.getOrDefault("plugins", true)) {
-            out.println("    if (!navigator.plugins || navigator.plugins.length === 0) { token = 'blocked_plugins'; }");
+            out.println("    if (!navigator.plugins || navigator.plugins.length === 0) {");
+            out.println("      token = (isAndroid ? 'blocked_android_root' : 'blocked_plugins');");
+            out.println("    }");
         }
         if (checks.getOrDefault("languages", true)) {
-            out.println("    if (!navigator.languages || navigator.languages.length === 0) { token = 'blocked_languages'; }");
+            out.println("    if (!navigator.languages || navigator.languages.length === 0) {");
+            out.println("      token = (isAndroid ? 'blocked_android_root' : 'blocked_languages');");
+            out.println("    }");
         }
         if (checks.getOrDefault("timezone", true)) {
-            out.println("    try { if (Intl.DateTimeFormat().resolvedOptions().timeZone === '') token = 'blocked_tz'; } catch(e){}");
+            out.println("    try { if (Intl.DateTimeFormat().resolvedOptions().timeZone === '') {");
+            out.println("      token = (isAndroid ? 'blocked_android_root' : 'blocked_tz');");
+            out.println("    } } catch(e){}");
         }
         if (checks.getOrDefault("canvas", true)) {
             out.println("    var canvas = document.createElement('canvas');");
             out.println("    var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');");
-            out.println("    if (!gl) { token = 'blocked_webgl'; }");
+            out.println("    if (!gl) {");
+            out.println("      token = (isAndroid ? 'blocked_android_root' : 'blocked_webgl');");
+            out.println("    }");
         }
         out.println("  }");
         out.println("  document.cookie = '" + TOKEN_COOKIE + "=' + token + ';path=/;max-age=" + tokenValiditySeconds + "';");
@@ -109,6 +146,7 @@ public class BrowserCheckHandler {
     }
 
     private String generateToken(String ip) {
+        // 服务端生成 token 时无需指纹，只做基础校验，真正的 token 由客户端生成
         return sha256(ip + secret + "static_token");
     }
 

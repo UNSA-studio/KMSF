@@ -64,7 +64,7 @@ public class KmsfFilter implements Filter {
         // 1. IP 黑名单检查
         List<String> blacklist = (List<String>) config.get("ip_blacklist");
         if (blacklist != null && blacklist.contains(ip)) {
-            sendBlocked(response, "IP blacklisted");
+            sendBlocked(response, "IP permanently blocked");
             return;
         }
 
@@ -77,6 +77,36 @@ public class KmsfFilter implements Filter {
         // 3. 浏览器挑战
         if ((boolean) ((Map) config.get("browser_check")).get("enabled")) {
             if (!browserCheck.isVerified(request)) {
+                // 检查本次请求是否带有 blocked_android_root 的 cookie
+                Cookie[] cookies = request.getCookies();
+                String token = null;
+                if (cookies != null) {
+                    for (Cookie c : cookies) {
+                        if ("kmsf_token".equals(c.getName())) {
+                            token = c.getValue();
+                            break;
+                        }
+                    }
+                }
+                if ("blocked_android_root".equals(token)) {
+                    // 永久封禁此 IP
+                    try {
+                        Map<String, Object> currentCfg = ConfigLoader.getConfig();
+                        List<String> list = (List<String>) currentCfg.get("ip_blacklist");
+                        if (list == null) list = new ArrayList<>();
+                        if (!list.contains(ip)) {
+                            list.add(ip);
+                            currentCfg.put("ip_blacklist", list);
+                            ConfigLoader.updateConfig(currentCfg);
+                            reloadConfig(); // 立即生效
+                        }
+                    } catch (Exception e) {
+                        // 日志可忽略
+                    }
+                    sendBlocked(response, "Android root detected - IP permanently blocked");
+                    return;
+                }
+                // 普通验证未通过，发送挑战页面
                 browserCheck.issueChallenge(response, ip, request.getHeader("User-Agent"));
                 return;
             }
@@ -98,20 +128,15 @@ public class KmsfFilter implements Filter {
     private boolean isProtectedPath(String uri) {
         if (protectedPaths == null) return false;
         String lowerUri = uri.toLowerCase();
-        // root 保护
         if (protectedPaths.contains("root") && (uri.equals("/") || uri.isEmpty())) {
             return true;
         }
         for (String rule : protectedPaths) {
             rule = rule.toLowerCase();
-            if (rule.equals("settings.folder") && lowerUri.equals("/settings")) {
-                return true; // 直接访问 /settings 文件夹
-            }
-            if (rule.equals("settings.folder/*") && lowerUri.startsWith("/settings/")) {
-                return true; // /settings/ 下的任何内容
-            }
+            if (rule.equals("settings.folder") && lowerUri.equals("/settings")) return true;
+            if (rule.equals("settings.folder/*") && lowerUri.startsWith("/settings/")) return true;
             if (rule.endsWith(".folder") && !rule.endsWith(".folder/*")) {
-                String folderName = rule.substring(0, rule.length() - 7); // 去掉 .folder
+                String folderName = rule.substring(0, rule.length() - 7);
                 if (lowerUri.equals("/" + folderName)) return true;
             }
             if (rule.endsWith(".folder/*")) {
