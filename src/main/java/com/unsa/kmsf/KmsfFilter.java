@@ -30,6 +30,16 @@ public class KmsfFilter implements Filter {
         try {
             ConfigLoader.loadConfig(stisFilePath);
             reloadConfig();
+            // 每次启动时清空日志，避免新旧堆叠
+            if (logEnabled && logPath != null) {
+                Path logFile = Paths.get(logPath);
+                if (logFile.getParent() != null) {
+                    Files.createDirectories(logFile.getParent());
+                }
+                // 覆盖写入空内容，相当于清空
+                Files.write(logFile, "".getBytes(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                log("KMSF filter initialized, log cleared.");
+            }
         } catch (IOException e) {
             throw new ServletException("KMSF 配置加载失败", e);
         }
@@ -47,7 +57,6 @@ public class KmsfFilter implements Filter {
         if (hdrs != null) {
             hdrs.forEach((k, v) -> customHeaders.put(k, String.valueOf(v)));
         }
-        // 日志配置
         logPath = (String) config.getOrDefault("log_path", "Settings/kmsf.log");
         String logLevel = (String) config.getOrDefault("log_level", "info");
         logEnabled = logLevel.equals("debug") || logLevel.equals("info");
@@ -63,7 +72,6 @@ public class KmsfFilter implements Filter {
             String line = sdf.format(new Date()) + " [" + Thread.currentThread().getName() + "] " + message + "\n";
             Files.write(path, line.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
-            // 日志写入失败不阻断主流程
             e.printStackTrace();
         }
     }
@@ -74,7 +82,6 @@ public class KmsfFilter implements Filter {
         HttpServletRequest request = (HttpServletRequest) req;
         HttpServletResponse response = (HttpServletResponse) res;
 
-        // 添加自定义安全头
         for (Map.Entry<String, String> e : customHeaders.entrySet()) {
             response.setHeader(e.getKey(), e.getValue());
         }
@@ -87,7 +94,6 @@ public class KmsfFilter implements Filter {
 
         String ip = getClientIP(request);
         String requestURI = request.getRequestURI();
-
         log("Request from " + ip + " to " + requestURI);
 
         // 1. IP 黑名单检查
@@ -98,7 +104,7 @@ public class KmsfFilter implements Filter {
             return;
         }
 
-        // 2. 速率限制
+        // 2. 速率限制（含动态黑名单）
         if (!rateLimiter.isAllowed(ip)) {
             log("BLOCKED: Rate limit or dynamic blacklist triggered for " + ip);
             sendBlocked(response, "Rate limit exceeded or blocked");
@@ -134,7 +140,7 @@ public class KmsfFilter implements Filter {
                     sendBlocked(response, "Android root detected - IP permanently blocked");
                     return;
                 }
-                // 未验证，发送挑战页
+                // 未验证，发送挑战页面
                 log("Browser challenge issued for " + ip);
                 browserCheck.issueChallenge(response, ip, request.getHeader("User-Agent"));
                 return;
@@ -151,7 +157,6 @@ public class KmsfFilter implements Filter {
             }
         }
 
-        // 通过所有检查
         log("ALLOWED: " + ip + " -> " + requestURI);
         chain.doFilter(req, res);
     }
