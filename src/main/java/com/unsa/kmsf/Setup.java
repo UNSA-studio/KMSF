@@ -14,10 +14,10 @@ public class Setup {
         Map<String, String> cn = new LinkedHashMap<>();
         cn.put("title", "KMSF 首次运行配置向导");
         cn.put("choose_lang", "Bootstrap language: CN/US");
-        cn.put("use_default", "使用默认配置 (default.stis) 吗？(y/n)");
+        cn.put("use_default", "使用默认配置 (default.stis) 吗？");
         cn.put("start_custom", "开始自定义配置（输入 y/n 或具体值）：");
         cn.put("enable_protection", "启用 KMSF 保护？");
-        cn.put("log_level", "日志级别 (info/debug)");
+        cn.put("log_level", "日志级别 (必须为 info 或 debug)");
         cn.put("enable_rate_limit", "启用速率限制？");
         cn.put("max_requests", "  时间窗口内最大请求数");
         cn.put("time_window", "  时间窗口（支持 s/m/h/w/mo/y，如 10s、1m、2w、6mo、1y）");
@@ -41,14 +41,15 @@ public class Setup {
         cn.put("invalid_number", "输入无效数字，请重新输入。");
         cn.put("invalid_time", "时间格式错误或超过上限，请重新输入（如 10s、5m、1h、2w、6mo、1y）。");
         cn.put("invalid_yes_no", "无效输入，请输入 y/yes 或 n/no。");
+        cn.put("invalid_log_level", "无效日志级别，请输入 info 或 debug。");
 
         Map<String, String> en = new LinkedHashMap<>();
         en.put("title", "KMSF Initial Setup Wizard");
         en.put("choose_lang", "Bootstrap language: CN/US");
-        en.put("use_default", "Use default.stis configuration? (y/n)");
+        en.put("use_default", "Use default.stis configuration?");
         en.put("start_custom", "Start custom configuration (input y/n or specific value):");
         en.put("enable_protection", "Enable KMSF protection?");
-        en.put("log_level", "Log level (info/debug)");
+        en.put("log_level", "Log level (must be info or debug)");
         en.put("enable_rate_limit", "Enable rate limiting?");
         en.put("max_requests", "  Max requests per time window");
         en.put("time_window", "  Time window (supports s/m/h/w/mo/y, e.g. 10s, 1m, 2w, 6mo, 1y)");
@@ -72,6 +73,7 @@ public class Setup {
         en.put("invalid_number", "Invalid number, please try again.");
         en.put("invalid_time", "Invalid time format or exceeds limit, please re-enter (e.g. 10s, 5m, 1h, 2w, 6mo, 1y).");
         en.put("invalid_yes_no", "Invalid input, please enter y/yes or n/no.");
+        en.put("invalid_log_level", "Invalid log level, please enter info or debug.");
 
         lang.put("CN", cn);
         lang.put("US", en);
@@ -92,11 +94,12 @@ public class Setup {
         System.out.println("  " + t.get("title"));
         System.out.println("=================================");
         System.out.println(t.get("forbidden_note"));
-        System.out.print(t.get("use_default") + " ");
-        String choice = scanner.nextLine().trim().toLowerCase();
+
+        // 严格询问是否使用默认配置
+        boolean useDefault = askYesNo(t.get("use_default"), t);
 
         Map<String, Object> config;
-        if (choice.equals("y") || choice.equals("yes")) {
+        if (useDefault) {
             InputStream is = Setup.class.getClassLoader().getResourceAsStream("default.stis");
             if (is == null) {
                 System.err.println("默认配置模板 default.stis 未找到");
@@ -109,7 +112,7 @@ public class Setup {
             System.out.println("\n" + t.get("start_custom"));
 
             config.put("enabled", askYesNo(t.get("enable_protection"), t));
-            config.put("log_level", askString(t.get("log_level")));
+            config.put("log_level", askLogLevel(t.get("log_level"), t));
 
             // 速率限制
             boolean rl = askYesNo(t.get("enable_rate_limit"), t);
@@ -156,7 +159,7 @@ public class Setup {
             }
             config.put("browser_check", browserCheck);
 
-            // 路径保护白名单
+            // 根目录白名单
             String rootIPs = askString(t.get("root_access"));
             List<String> rootAccess = new ArrayList<>();
             if (!rootIPs.isEmpty()) {
@@ -164,7 +167,7 @@ public class Setup {
             }
             config.put("root_access", rootAccess);
 
-            // 强制写入硬编码路径
+            // 强制硬编码保护路径
             List<String> forcedList = new ArrayList<>();
             forcedList.add("Settings.folder");
             forcedList.add("Settings.folder/*");
@@ -200,6 +203,19 @@ public class Setup {
                 return false;
             } else {
                 System.out.println(t.get("invalid_yes_no"));
+            }
+        }
+    }
+
+    // 严格校验日志级别
+    private static String askLogLevel(String prompt, Map<String, String> t) {
+        while (true) {
+            System.out.print(prompt + ": ");
+            String input = scanner.nextLine().trim().toLowerCase();
+            if (input.equals("info") || input.equals("debug")) {
+                return input;
+            } else {
+                System.out.println(t.get("invalid_log_level"));
             }
         }
     }
