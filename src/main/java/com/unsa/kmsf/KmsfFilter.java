@@ -4,7 +4,6 @@ import javax.servlet.*;
 import javax.servlet.http.*;
 import java.io.*;
 import java.nio.file.*;
-import java.time.Instant;
 import java.util.*;
 import java.text.SimpleDateFormat;
 
@@ -30,13 +29,11 @@ public class KmsfFilter implements Filter {
         try {
             ConfigLoader.loadConfig(stisFilePath);
             reloadConfig();
-            // 每次启动时清空日志，避免新旧堆叠
             if (logEnabled && logPath != null) {
                 Path logFile = Paths.get(logPath);
                 if (logFile.getParent() != null) {
                     Files.createDirectories(logFile.getParent());
                 }
-                // 覆盖写入空内容，相当于清空
                 Files.write(logFile, "".getBytes(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                 log("KMSF filter initialized, log cleared.");
             }
@@ -104,47 +101,49 @@ public class KmsfFilter implements Filter {
             return;
         }
 
-        // 2. 速率限制（含动态黑名单）
+        // 2. 浏览器验证检查（独立于速率限制）
+        boolean browserCheckEnabled = (boolean) ((Map) config.get("browser_check")).get("enabled");
+        boolean verified = browserCheckEnabled ? browserCheck.isVerified(request) : true;
+
+        // 如果未验证，直接发挑战，不计入速率限制
+        if (!verified) {
+            // 检查是否有 blocked_android_root token（用于永久封禁）
+            Cookie[] cookies = request.getCookies();
+            String token = null;
+            if (cookies != null) {
+                for (Cookie c : cookies) {
+                    if ("kmsf_token".equals(c.getName())) {
+                        token = c.getValue();
+                        break;
+                    }
+                }
+            }
+            if ("blocked_android_root".equals(token)) {
+                log("BLOCKED: Android root detected for IP " + ip + " - permanently blocking");
+                try {
+                    Map<String, Object> currentCfg = ConfigLoader.getConfig();
+                    List<String> list = (List<String>) currentCfg.get("ip_blacklist");
+                    if (list == null) list = new ArrayList<>();
+                    if (!list.contains(ip)) {
+                        list.add(ip);
+                        currentCfg.put("ip_blacklist", list);
+                        ConfigLoader.updateConfig(currentCfg);
+                        reloadConfig();
+                    }
+                } catch (Exception e) {}
+                sendBlocked(response, "Android root detected - IP permanently blocked");
+                return;
+            }
+            log("Browser challenge issued for " + ip);
+            browserCheck.issueChallenge(response, ip, request.getHeader("User-Agent"));
+            return;
+        }
+
+        // 3. 速率限制（只对已验证的请求生效）
         if (!rateLimiter.isAllowed(ip)) {
             log("BLOCKED: Rate limit or dynamic blacklist triggered for " + ip);
             sendBlocked(response, "Rate limit exceeded or blocked");
             return;
-        }
-
-        // 3. 浏览器挑战
-        if ((boolean) ((Map) config.get("browser_check")).get("enabled")) {
-            if (!browserCheck.isVerified(request)) {
-                Cookie[] cookies = request.getCookies();
-                String token = null;
-                if (cookies != null) {
-                    for (Cookie c : cookies) {
-                        if ("kmsf_token".equals(c.getName())) {
-                            token = c.getValue();
-                            break;
-                        }
-                    }
-                }
-                if ("blocked_android_root".equals(token)) {
-                    log("BLOCKED: Android root detected for IP " + ip + " - permanently blocking");
-                    try {
-                        Map<String, Object> currentCfg = ConfigLoader.getConfig();
-                        List<String> list = (List<String>) currentCfg.get("ip_blacklist");
-                        if (list == null) list = new ArrayList<>();
-                        if (!list.contains(ip)) {
-                            list.add(ip);
-                            currentCfg.put("ip_blacklist", list);
-                            ConfigLoader.updateConfig(currentCfg);
-                            reloadConfig();
-                        }
-                    } catch (Exception e) {}
-                    sendBlocked(response, "Android root detected - IP permanently blocked");
-                    return;
-                }
-                // 未验证，发送挑战页面
-                log("Browser challenge issued for " + ip);
-                browserCheck.issueChallenge(response, ip, request.getHeader("User-Agent"));
-                return;
-            }
         }
 
         // 4. 路径保护

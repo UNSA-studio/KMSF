@@ -26,10 +26,10 @@ public class BrowserCheckHandler {
             for (Cookie c : cookies) {
                 if (TOKEN_COOKIE.equals(c.getName())) {
                     String token = c.getValue();
-                    // 任何带 blocked_ 前缀的 token 都视为未通过
-                    if (token.startsWith("blocked_")) return false;
-                    String expected = generateToken(request.getRemoteAddr());
-                    return expected.equals(token);
+                    // 只要不是 blocked_ 开头，并且长度像 SHA256（64个十六进制字符），就视为通过
+                    if (token != null && !token.startsWith("blocked_") && token.matches("^[a-f0-9]{64}$")) {
+                        return true;
+                    }
                 }
             }
         }
@@ -66,7 +66,6 @@ public class BrowserCheckHandler {
         out.println("var ip = '" + ip + "';");
         out.println("var strict = " + strictMode + ";");
         out.println("var isAndroid = " + isAndroid + ";");
-        // SHA-256
         out.println("function sha256(s) {");
         out.println("  var msgBuffer = new TextEncoder('utf-8').encode(s);");
         out.println("  return crypto.subtle.digest('SHA-256', msgBuffer).then(function(hash) {");
@@ -82,7 +81,6 @@ public class BrowserCheckHandler {
         out.println("async function run() {");
         out.println("  var token = await sha256(ip + secret + nonce);");
         out.println("  if (strict) {");
-        // 仅当检测到 webdriver 或 headless 时，才标记为 root（Android）
         if (checks.getOrDefault("webdriver", true)) {
             out.println("    if (navigator.webdriver) {");
             out.println("      token = (isAndroid ? 'blocked_android_root' : 'blocked_webdriver');");
@@ -93,30 +91,20 @@ public class BrowserCheckHandler {
             out.println("      token = (isAndroid ? 'blocked_android_root' : 'blocked_headless');");
             out.println("    }");
         }
-        // 其余检测只标记为普通 block，不会触发永久封禁
         if (checks.getOrDefault("canvas", true)) {
             out.println("    var canvas = document.createElement('canvas');");
             out.println("    var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');");
-            out.println("    if (!gl) {");
-            out.println("      token = 'blocked_webgl';");
-            out.println("    }");
+            out.println("    if (!gl) { token = 'blocked_webgl'; }");
         }
         if (checks.getOrDefault("plugins", true)) {
-            out.println("    if (!navigator.plugins || navigator.plugins.length === 0) {");
-            out.println("      token = 'blocked_plugins';");
-            out.println("    }");
+            out.println("    if (!navigator.plugins || navigator.plugins.length === 0) { token = 'blocked_plugins'; }");
         }
         if (checks.getOrDefault("languages", true)) {
-            out.println("    if (!navigator.languages || navigator.languages.length === 0) {");
-            out.println("      token = 'blocked_languages';");
-            out.println("    }");
+            out.println("    if (!navigator.languages || navigator.languages.length === 0) { token = 'blocked_languages'; }");
         }
         if (checks.getOrDefault("timezone", true)) {
-            out.println("    try { if (Intl.DateTimeFormat().resolvedOptions().timeZone === '') {");
-            out.println("      token = 'blocked_tz';");
-            out.println("    } } catch(e){}");
+            out.println("    try { if (Intl.DateTimeFormat().resolvedOptions().timeZone === '') { token = 'blocked_tz'; } } catch(e){}");
         }
-        // 文件探测已完全移除，避免所有误触发
         out.println("  }");
         out.println("  document.cookie = '" + TOKEN_COOKIE + "=' + token + ';path=/;max-age=" + tokenValiditySeconds + "';");
         out.println("  location.reload();");
@@ -128,6 +116,7 @@ public class BrowserCheckHandler {
         out.close();
     }
 
+    // 保留此方法以备后用，但 isVerified 不再使用它
     private String generateToken(String ip) {
         return sha256(ip + secret + "static_token");
     }
